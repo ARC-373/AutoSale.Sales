@@ -7,9 +7,9 @@ namespace AutoSale.Infrastructure.Persistence;
 
 public sealed class UnitOfWork : IUnitOfWork
 {
-    private readonly AutoSaleDbContext _dbContext;
+    private readonly SalesDbContext _dbContext;
 
-    public UnitOfWork(AutoSaleDbContext dbContext)
+    public UnitOfWork(SalesDbContext dbContext)
     {
         _dbContext = dbContext;
     }

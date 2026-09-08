@@ -13,4 +13,10 @@ public sealed class CurrentUser : ICurrentUser
     }
 
     public string? Subject => _httpContextAccessor.HttpContext?.User.FindFirstValue("sub");
+
+    public bool IsAdmin => _httpContextAccessor.HttpContext?.User
+        .FindAll(Authorization.AuthorizationPolicies.CognitoGroupsClaimType)
+        .SelectMany(claim => claim.Value.Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        .Contains(Authorization.AuthorizationPolicies.AdministratorsGroup, StringComparer.Ordinal) == true;
 }

@@ -4,6 +4,9 @@ using AutoSale.Api.Extensions;
 using AutoSale.Api.Middleware;
 using AutoSale.Infrastructure;
 using AutoSale.Infrastructure.Persistence;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using OpenTelemetry.Metrics;
@@ -13,19 +16,37 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("AutoSale");
+var connectionString = builder.Configuration.GetConnectionString("Sales")
+    ?? builder.Configuration.GetConnectionString("AutoSale");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     if (!builder.Environment.IsDevelopment())
     {
-        throw new InvalidOperationException("ConnectionStrings:AutoSale must be configured outside the Development environment.");
+        throw new InvalidOperationException("ConnectionStrings:Sales must be configured outside the Development environment.");
     }
 
-    connectionString = "Host=localhost;Database=autosale";
+    connectionString = "Host=localhost;Database=autosale_sales";
 }
 
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problem = new ValidationProblemDetails(context.ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Validation",
+            Detail = "The request body or parameters are invalid.",
+            Instance = context.HttpContext.Request.Path
+        };
+        problem.Extensions["code"] = "request.invalid";
+        problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+        return new BadRequestObjectResult(problem);
+    };
+});
 builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, _, _) =>
@@ -57,14 +78,14 @@ builder.Services.AddOpenApi(options =>
 });
 builder.Services.AddExceptionHandler<ExceptionHandlingMiddleware>();
 builder.Services.AddAutoSaleAuthentication(builder.Configuration, builder.Environment);
-builder.Services.AddAutoSaleAuthorization();
+builder.Services.AddAutoSaleAuthorization(builder.Configuration);
 builder.Services.AddApplicationHandlers();
 builder.Services.AddInfrastructure(connectionString);
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AutoSaleDbContext>("postgresql");
+    .AddDbContextCheck<SalesDbContext>("postgresql");
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(
-        serviceName: builder.Configuration["OTEL_SERVICE_NAME"] ?? "autosale-api"))
+        serviceName: builder.Configuration["OTEL_SERVICE_NAME"] ?? "autosale-sales-api"))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
@@ -80,7 +101,7 @@ var app = builder.Build();
 if (builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup"))
 {
     using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<AutoSaleDbContext>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<SalesDbContext>();
     await dbContext.Database.MigrateAsync();
 }
 
@@ -94,6 +115,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+}).AllowAnonymous();
 app.MapOpenApi();
 
 app.MapScalarApiReference("/docs", options => options

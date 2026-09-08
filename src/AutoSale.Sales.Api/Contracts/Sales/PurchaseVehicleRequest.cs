@@ -1,3 +1,3 @@
 namespace AutoSale.Api.Contracts.Sales;
 
-public sealed record PurchaseVehicleRequest(string? IdempotencyKey = null);
+public sealed record PurchaseVehicleRequest(string BuyerCpf, decimal ExpectedPrice);

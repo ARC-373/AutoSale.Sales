@@ -32,6 +32,7 @@ public sealed class ExceptionHandlingMiddleware : IExceptionHandler
             Instance = httpContext.Request.Path
         };
         problem.Extensions["code"] = code;
+        problem.Extensions["traceId"] = httpContext.TraceIdentifier;
 
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/problem+json";

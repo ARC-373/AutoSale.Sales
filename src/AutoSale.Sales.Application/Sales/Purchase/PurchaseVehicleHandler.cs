@@ -11,27 +11,22 @@ namespace AutoSale.Application.Sales.Purchase;
 
 public sealed class PurchaseVehicleHandler : ICommandHandler<PurchaseVehicleCommand, Result<SaleDto>>
 {
-    private readonly IVehicleRepository _vehicleRepository;
     private readonly ISaleRepository _saleRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUser _currentUser;
     private readonly IClock _clock;
 
-    public PurchaseVehicleHandler(
-        IVehicleRepository vehicleRepository,
-        ISaleRepository saleRepository,
-        IUnitOfWork unitOfWork,
-        ICurrentUser currentUser,
-        IClock clock)
+    public PurchaseVehicleHandler(ISaleRepository saleRepository, IUnitOfWork unitOfWork,
+        ICurrentUser currentUser, IClock clock)
     {
-        _vehicleRepository = vehicleRepository;
         _saleRepository = saleRepository;
         _unitOfWork = unitOfWork;
         _currentUser = currentUser;
         _clock = clock;
     }
 
-    public async Task<Result<SaleDto>> HandleAsync(PurchaseVehicleCommand command, CancellationToken cancellationToken)
+    public async Task<Result<SaleDto>> HandleAsync(PurchaseVehicleCommand command,
+        CancellationToken cancellationToken)
     {
         var validation = PurchaseVehicleValidator.Validate(command);
         if (validation.IsFailure)
@@ -39,37 +34,38 @@ public sealed class PurchaseVehicleHandler : ICommandHandler<PurchaseVehicleComm
             return Result.Failure<SaleDto>(validation.Error);
         }
 
-        var buyerSubject = _currentUser.Subject;
+        var buyerSubject = _currentUser.Subject?.Trim();
         if (string.IsNullOrWhiteSpace(buyerSubject))
         {
             return Result.Failure<SaleDto>(ApplicationErrors.Unauthenticated);
         }
 
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
-        var vehicle = await _vehicleRepository.GetByIdForPurchaseAsync(command.VehicleId, cancellationToken);
-        if (vehicle is null)
+        var idempotencyKey = command.IdempotencyKey.Trim();
+        var requestHash = PurchaseRequestHash.Create(command.VehicleId, validation.Value!, command.ExpectedPrice);
+
+        await using var transaction = await _unitOfWork.BeginTransactionAsync(
+            IsolationLevel.ReadCommitted, cancellationToken);
+        var existing = await _saleRepository.GetByBuyerAndIdempotencyKeyAsync(
+            buyerSubject, idempotencyKey, cancellationToken);
+
+        if (existing is not null)
         {
-            return Result.Failure<SaleDto>(ApplicationErrors.VehicleNotFound);
+            return string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal)
+                ? Result.Success(SaleDto.FromDomain(existing))
+                : Result.Failure<SaleDto>(ApplicationErrors.IdempotencyConflict);
         }
 
-        var now = _clock.UtcNow;
-        var saleResult = Sale.Create(vehicle.Id, buyerSubject, vehicle.Price, now, command.IdempotencyKey);
+        var saleResult = Sale.Create(command.VehicleId, buyerSubject, validation.Value!, command.ExpectedPrice,
+            idempotencyKey, requestHash, _clock.UtcNow);
         if (saleResult.IsFailure)
         {
             return Result.Failure<SaleDto>(saleResult.Error);
-        }
-
-        var markAsSold = vehicle.MarkAsSold(now);
-        if (markAsSold.IsFailure)
-        {
-            return Result.Failure<SaleDto>(markAsSold.Error);
         }
 
         var sale = saleResult.Value!;
         await _saleRepository.AddAsync(sale, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-
         return Result.Success(SaleDto.FromDomain(sale));
     }
 }
