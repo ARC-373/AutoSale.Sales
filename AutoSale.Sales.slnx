@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/docs/">
+    <Folder Name="/docs/spec/">
+      <File Path="docs/spec/Fase 3 Monitoramento - Matérias e Aula.md" />
+      <File Path="docs/spec/Plano-Desenvolvimento-TechChallenge-Fase3.md" />
+      <File Path="docs/spec/Trabalho Sub TechChallenge SOAT - Fase 3.md" />
+    </Folder>
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".env" />
+    <File Path="docker-compose.yml" />
+    <File Path="otel-collector-config.yaml" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/AutoSale.Sales.Api/AutoSale.Sales.Api.csproj" />
+    <Project Path="src/AutoSale.Sales.Application/AutoSale.Sales.Application.csproj" />
+    <Project Path="src/AutoSale.Sales.Domain/AutoSale.Sales.Domain.csproj" />
+    <Project Path="src/AutoSale.Sales.Infrastructure/AutoSale.Sales.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/AutoSale.SharedKernel/AutoSale.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+  </Folder>
+</Solution>
