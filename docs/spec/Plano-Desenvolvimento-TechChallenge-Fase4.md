@@ -1,22 +1,10 @@
 # Fase 4 — especificação de implementação e roadmap
 
-Data: 07/09/2026. Status: proposta pronta para orientar implementação; decisões externas pendentes estão na seção 13. Este documento não representa funcionalidades já implementadas.
-
 ## 1. Decisão recomendada e revisão da proposta
 
-
-Evoluir o repositório atual para **Veículos**, extrair código selecionado para um novo repositório **Vendas** e colocar o **Payments.Mock** no repositório de Vendas, como terceiro executável, imagem e deployment independentes. Manter .NET, PostgreSQL, Clean Architecture, handlers explícitos, Result, Cognito, Scalar e OpenTelemetry presentes no projeto.
+Evoluir o repositório atual para **Vendas** e adicionar o projeto **Payments.Mock** no mesmo repositório de Vendas, como terceiro executável, imagem e deployment independentes. Manter .NET, PostgreSQL, Clean Architecture, handlers explícitos, Result, Cognito, Scalar e OpenTelemetry presentes no projeto.
 
 **Correção obrigatória da proposta original:** as listagens públicas de veículos disponíveis e vendidos pertencem a Vendas. O enunciado da fase 4 determina que “os endpoints de listagem e compras de veículos devem estar isolados em um serviço único” com banco isolado. Veículos mantém cadastro, edição, consulta administrativa individual e a autoridade sobre disponibilidade/reserva/venda. Vendas mantém uma projeção local do catálogo para atender as listagens sem consultar Veículos por requisição.
-
-| Item proposto | Validade e especificação resultante |
-| --- | --- |
-| Duas aplicações principais | Aderente: Veículos e Vendas, com deploys e bancos independentes. |
-| Veículos cadastra, edita, lista e controla status | Parcialmente aderente: cadastro, edição e status permanecem; as duas listagens públicas exigidas migram para Vendas. Não criar outra listagem administrativa no escopo mínimo. |
-| Vendas efetua vendas, comunica alterações e recebe resultado de pagamento | Aderente. Compra inicia uma venda pendente; somente pagamento efetuado autoriza sua conclusão. |
-| Mock recebe códigos de venda, aprova/rejeita e retorna resultado | Aderente como apoio solicitado, adicional ao enunciado. Deve correlacionar `saleId` e `paymentCode`, pois o webhook exigido identifica o pagamento pelo código do pagamento. |
-| Máximo reaproveitamento e mudanças mínimas | Aderente desde que não preserve transação/FK compartilhada nem listagens no serviço errado. Reaproveitar código e convenções, não a fronteira transacional do monólito. |
-| Simplicidade, coesão e boas práticas | Manter poucos projetos, HTTP/JSON, transações locais e workers pequenos. Recuperação persistida de falhas é parte do mínimo funcional distribuído. Sem broker, event sourcing, pacote compartilhado entre repositórios, gateway próprio ou framework de saga. |
 
 ## 2. Requisitos de avaliação e evidências
 
@@ -39,7 +27,7 @@ Fonte normativa: [enunciado da fase 4](Trabalho%20Sub%20TechChallenge%20SOAT%20-
 | README em cada repositório | Implementação, contratos, execução local, testes e publicação | Reprodução a partir de clone limpo |
 | PDF de links e vídeo ponta a ponta | Checklist de entrega na seção 14 | Arquivos finais e links conferidos |
 
-Interpretações conservadoras: o texto menciona cobertura geral para microsserviços e destaca 80% no repositório de Vendas; aplicar >=80% de linhas em **cada aplicação principal**, incluindo código executável de API, Application, Domain, Infrastructure e SharedKernel. Incluir também o Mock no gate do seu projeto para não diluir o resultado de Vendas. O texto cita deployments e services, embora não escreva explicitamente “Kubernetes”: entregar esses recursos aplicados é a opção proposta para evitar ambiguidade. Não há obrigação explícita de provedor cloud específico, HPA, teste de carga formal ou frontend.
+Interpretações conservadoras: o texto menciona cobertura geral para microsserviços e destaca 80% no repositório de Vendas; aplicar >=80% de linhas em **cada aplicação principal**, incluindo código executável de API, Application, Domain, Infrastructure e SharedKernel. Incluir também o Mock no gate do seu projeto para não diluir o resultado de Vendas.
 
 ## 3. Diagnóstico da implementação atual
 
@@ -58,34 +46,6 @@ Análise estática dos arquivos em 07/09/2026. A aprovação anterior da fase 3 
 | `.github/workflows/ci.yml` roda testes, build e Compose temporário no runner | Acrescentar coleta/gate de cobertura, registry e deploy persistente após merge; o smoke atual não comprova esse destino. |
 | `tests/AutoSale.Api.IntegrationTests/` contém somente csproj | Implementar testes HTTP/DB reais; a existência do projeto não equivale a testes de integração. |
 | `Directory.Packages.props` já inclui coverlet.collector | Reaproveitar coletor; falta ativar coleta, agregar e bloquear cobertura insuficiente. |
-
-## 4. Repositórios e estratégia de evolução
-
-Nomes abaixo são sugestões; nenhum repositório será criado por este planejamento.
-
-| Alternativa | Benefícios | Custos/riscos | Decisão |
-| --- | --- | --- | --- |
-| Um monorepo para tudo | Execução local simples | Contraria a entrega de dois repositórios | Descartar |
-| Dois repos: Veículos; Vendas + Mock | Atende os dois links e mantém mock próximo de seu consumidor | CI deve produzir duas imagens no segundo repo | **Recomendada** |
-| Três repos, um por executável | Ciclo próprio do mock | Terceira esteira e link sem ganho relevante no prazo | Só se houver exigência adicional |
-| Dois repos, mock junto de Veículos | Também comporta duas aplicações principais segregadas | Acopla ferramenta de pagamento ao repo de cadastro | Viável, sem vantagem aqui |
-
-**Repo A — FIAP-AutoSale (existente):** aplicação Veículos, banco `vehicles_db`, workflows, Dockerfile, manifests de Veículos e infraestrutura compartilhada do ambiente. Conservar nomes `AutoSale.*` para reduzir alterações; README e `OTEL_SERVICE_NAME=autosale-vehicles` explicitam a nova função.
-
-**Repo B — FIAP-AutoSale-Sales (novo):** aplicação `AutoSale.Sales.*`, banco `sales_db`, aplicação `AutoSale.Payments.Mock`, respectivos Dockerfiles, workflows e manifests. O Mock tem armazenamento SQLite próprio em volume e não acessa nenhum dos bancos principais.
-
-Cada repo deve compilar e testar sem checkout do outro. Copiar os poucos tipos genéricos de SharedKernel e convenções necessárias; não compartilhar entidades, DbContext ou DLLs de domínio. HTTP é a fronteira. Contrato canônico pertence ao serviço provedor, versionado em `docs/contracts/openapi.yaml`; consumidores mantêm fixtures dos exemplos contratados. Alterações aditivas primeiro no provedor, depois no consumidor. Mudança incompatível exige nova versão de rota ou transição coordenada documentada.
-
-| Abordagem de implementação | Avaliação |
-| --- | --- |
-| Reescrever ambos do zero | Desperdiça regras, validação, auth, testes e Docker já presentes. |
-| Atual vira Vendas; extrair Veículos | Viável, mas mantém o repo original justamente na área que exige maior remodelagem. |
-| Atual vira Veículos; extrair Vendas com scaffold existente | **Recomendada:** CRUD mais estável permanece e o fluxo novo evolui isoladamente. |
-| Clonar integralmente e deixar módulos inativos | Arranque rápido, mas duplica domínio e deixa dependências indevidas; não é estado final aceitável. |
-
-Sequência: registrar commit-base/tag da fase 3; iniciar branches `codex/fase4-*`; copiar seletivamente arquivos antes de remover Sales do repo A; fazer scaffold funcional do repo B; estabelecer contratos; só então cortar rotas/tabelas antigas. Preservar histórico e especificações. Novas migrations em Veículos devem partir da cadeia existente; Vendas recebe migration inicial própria. Não editar retroativamente migrations já aplicadas.
-
-**Dados existentes:** desenvolvimento e demonstração podem usar bases novas com fixtures sintéticas, sem apagar a base da fase 3. Se for obrigatório preservar dados, fazer backup e migração única com aplicações antigas sem escrita: exportar veículos com IDs/versões; exportar vendas para snapshots; reconciliar totais/status/preços antes do corte. CPF não existe nas vendas antigas: não inventar; decidir fonte de preenchimento ou tratamento explícito de legado antes de migrar. Não manter escrita simultânea do monólito e dos novos serviços.
 
 ## 5. Arquitetura, dados e propriedade
 
@@ -277,59 +237,6 @@ Webhook:
 
 Operador usa chave de demonstração separada da chave de criação de pagamento, via Scalar. Repetir approve de Paid ou reject de Cancelled devolve 200; decisão oposta 409. CallbackDelivered significa que Vendas aceitou o evento (2xx), não que a venda já está Completed. Consulta retorna paymentCode, saleId, amount, currency, status, callbackDeliveredAtUtc e lastError sanitizado. Callback URL é fixa em configuração. Mock não recebe CPF, não altera Veículos e não inventa pagamento sem criação prévia por Vendas.
 
-## 8. Guia de implementação — Veículos
-
-Árvore alvo; itens entre parênteses são observações e não nomes de arquivos.
-
-```text
-FIAP-AutoSale/
-  AutoSale.slnx
-  Directory.Build.props / Directory.Packages.props
-  src/
-    AutoSale.Api/
-      Controllers/VehiclesController.cs
-      Controllers/VehicleReservationsController.cs
-      Contracts/Vehicles/{CreateVehicleRequest,UpdateVehicleRequest,VehicleResponse}.cs
-      Contracts/Reservations/{ReserveVehicleRequest,ReservationResponse}.cs
-      Authentication/ / Authorization/ / Extensions/ / Middleware/
-      Program.cs / appsettings.json / Dockerfile
-    AutoSale.Application/
-      Vehicles/Create/ / Update/ / GetById/
-      Vehicles/Reserve/ / ConfirmSale/ / ReleaseReservation/
-      Catalog/PublishPending/ / Rebuild/
-      Abstractions/Persistence/{IVehicleRepository,IReservationRepository,IUnitOfWork,ICatalogOutboxRepository}.cs
-      Abstractions/Integrations/ISalesCatalogClient.cs
-      Abstractions/Clock/IClock.cs
-      Common/
-    AutoSale.Domain/
-      Vehicles/{Vehicle,VehicleStatus,VehicleErrors}.cs
-      Reservations/{VehicleReservation,ReservationStatus}.cs
-    AutoSale.Infrastructure/
-      Persistence/AutoSaleDbContext.cs
-      Persistence/Configurations/ / Repositories/ / Migrations/
-      Integrations/Sales/{SalesCatalogClient,SalesIntegrationOptions}.cs
-      BackgroundServices/CatalogPublisherWorker.cs
-      DependencyInjection.cs / Clock/
-    BuildingBlocks/AutoSale.SharedKernel/
-  tests/
-    AutoSale.Domain.UnitTests/
-    AutoSale.Application.UnitTests/
-    AutoSale.ArchitectureTests/
-    AutoSale.Api.IntegrationTests/
-  docs/contracts/openapi.yaml
-  docs/runbooks/{local,deploy,data-migration}.md
-  deploy/k8s/vehicles/{deployment,service,configmap,migration-job}.yaml
-  deploy/k8s/platform/ (namespace, bancos com PVC, entrada HTTP)
-  deploy/compose/integration.yml
-  scripts/{check-coverage,smoke,rebuild-catalog}.ps1
-  .github/workflows/{ci,cd}.yml
-  README.md / docker-compose.yml / .env.example
-```
-
-Relacionamentos: Controller → handler → Vehicle/VehicleReservation + portas de persistência → implementações EF. `ReserveVehicleHandler`, `ConfirmVehicleSaleHandler`, `ReleaseVehicleReservationHandler` delimitam transações locais; inserem snapshot na outbox antes do commit. `CatalogPublisherWorker` cria escopo de DI → `PublishPendingCatalogHandler` → `ISalesCatalogClient` → HTTP. Application nunca usa HttpClient/DbContext diretamente. Domain não conhece integração ou autenticação.
-
-Manter `CreateVehicleHandler` e `UpdateVehicleHandler`, acrescentando outbox e concorrência explícita. Mover ListAvailable para Vendas; remover Purchase do controller e remover Domain/Sales, Application/Sales, ISaleRepository, SaleRepository e registro DI correspondente somente após extração. Migration posterior remove tabela sales antiga conforme decisão de dados. Remover testes de Sales apenas depois de portados ao repo B; adaptar testes de Vehicle para Reserved e reserva idempotente.
-
 ## 9. Guia de implementação — Vendas
 
 ```text
@@ -373,8 +280,6 @@ FIAP-AutoSale-Sales/
   docs/contracts/{openapi,payments-mock.openapi}.yaml
   docs/contracts/fixtures/
   docs/runbooks/{local,deploy,demo}.md
-  deploy/k8s/sales/{deployment,service,configmap,migration-job}.yaml
-  deploy/k8s/payments-mock/{deployment,service,pvc,configmap}.yaml
   scripts/{check-coverage,smoke}.ps1
   .github/workflows/{ci,cd}.yml
   README.md / docker-compose.yml / .env.example
@@ -410,14 +315,6 @@ Compose individual de cada repo levanta sua aplicação, banco e dependências s
 
 Portas propostas: Veículos 8080, Vendas 8081, Mock 8082; PostgreSQL de Veículos 5432 e de Vendas 5433 somente para inspeção local. Usar dois serviços PostgreSQL, volumes e usuários diferentes; nenhum usuário com grants no outro banco. Mock usa volume SQLite exclusivo. Compose integrado identifica explicitamente as três versões e permite atualizar uma aplicação sem reconstruir as outras.
 
-### Publicação de demonstração
-
-Usar um cluster Kubernetes persistente acessível pelo CD, existente se disponível. Definir provedor/host na decisão D2; não assumir recursos cloud contratados. Repo A possui infraestrutura comum (namespace, bancos, volumes e entrada); repo B possui apenas manifests de Vendas/Mock. Cada CD aplica seus próprios recursos e não derruba os demais.
-
-APIs com Deployment e Service próprios; Vendas deve funcionar com duas réplicas e banco único de Vendas, demonstrando escala independente. Banco separado por aplicação, com PVC e provisionamento apropriado ao ambiente (StatefulSet simples para demonstração ou banco já disponível). Mock uma réplica. Definir requests/limits, readiness/liveness, configuração e secrets. Os [Deployments executam aplicações replicáveis](https://kubernetes.io/docs/concepts/workloads/) e os [Services fornecem endereços para seus pods](https://kubernetes.io/docs/concepts/services-networking/service/); ambos devem aparecer na evidência de publicação.
-
-Evitar colisão das rotas preservadas usando hosts separados para veículos/vendas/mock. Alternativa local: portas/port-forward. Não expor `/internal` na entrada pública; policies de autenticação continuam obrigatórias. Expor webhook apenas com credencial de integração. Se usar entrada compartilhada por path, especificar o roteamento por método, pois POST de cadastro e GET de disponíveis estão sob `/api/v1/vehicles` em serviços distintos; hosts separados eliminam essa complexidade.
-
 ### Pipelines por repositório
 
 1. PR: restore, build Release, todos os testes, relatórios TRX/Cobertura/HTML, gate de cobertura, build de cada imagem afetada e validação de manifests. Testes de integração usam PostgreSQL real isolado e serviços HTTP de teste.
@@ -448,52 +345,5 @@ Comando base reaproveitável: `dotnet test <solucao>.slnx --configuration Releas
 | Ponta a ponta | Cadastro → catálogo → compra → Mock → webhook → Completed/Sold; segunda execução cancelada → Available → nova compra. |
 
 Não substituir testes de lock/FK/índices por EF InMemory. Integração pode usar containers PostgreSQL no CI. Um smoke completo contra as imagens publicadas valida os dois contratos de integração e suas configurações além dos testes de cada repo.
-
-## 13. Perguntas objetivas e decisões pendentes
-
-Estas perguntas orientam a implementação posterior; não impedem a entrega deste plano. As recomendações técnicas acima já formam uma proposta coerente. Não provisionar recursos pagos, apagar dados ou inventar datas com base nas premissas.
-
-| ID | Pergunta | Premissa/recomendação | Quando precisa estar definida |
-| --- | --- | --- | --- |
-| D1 | Qual é a data/hora limite e quantas pessoas/horas por dia estão disponíveis? | Roadmap relativo abaixo; reservar 20% do prazo para validação e entrega. | Antes de converter roadmap em calendário. |
-| D2 | Qual ambiente persistente será usado no vídeo/CD e quais acessos já existem? | Kubernetes existente ou host disponível; entregar Deployments/Services aplicados. | Antes da tarefa de deploy; levantar já no início. |
-| D3 | É obrigatório preservar os dados atuais da fase 3? | Base nova de demonstração, preservando a antiga intacta. | Antes de migrations de corte. |
-| D4 | O repo atual pode virar Veículos e o novo se chamar FIAP-AutoSale-Sales na mesma organização? | Sim, com Mock no repo de Vendas. | Antes de criar repo/definir pipelines. |
-| D5 | O CPF será informado na compra ou deve vir de um atributo já existente e acessível no Cognito? | Informado na compra e associado ao sub autenticado; não redesenhar cadastro. | Antes de fechar PurchaseVehicleRequest. |
-| D6 | A banca forneceu definição adicional de cobertura ou de plataforma de publicação? | >=80% de linhas por aplicação e Kubernetes, interpretação conservadora do texto recebido. | Antes de fechar gate e ambiente; sem informação extra, seguir proposta. |
-
-Decisões já propostas para não bloquear: manter Cognito; manter rotas públicas mudando host; catálogo local com HTTP/outbox; compra assíncrona 202; reserva sem expiração automática; somente Paid/Cancelled; nenhuma UI além de Scalar. Se houver exigência de expiração, estorno ou confirmação imediata, revisar máquina de estados e contratos antes de implementar.
-
-## 14. Roadmap curto em ordem de conclusão
-
-Percentuais abaixo são fatias sugeridas do tempo de trabalho restante, **não estimativa de prazo absoluto**. Somam 100%; D1 permite transformá-los em datas. Fazer PRs pequenos em ambos os repos; testes acompanham cada item. Nenhuma tarefa abaixo está marcada como concluída por este documento.
-
-| Ordem | Entrega | Dependências | Critério objetivo de saída | Fatia |
-| --- | --- | --- | --- | --- |
-| 1 | Fechar D1–D6, registrar base fase 3, contratos e destino de publicação | — | Repos/ambiente/dados/CPF definidos e backlog ajustado | 5% |
-| 2 | Criar esqueleto dos dois repos e Mock; separar bancos; CI com cobertura desde o início | 1 | Cada repo compila/testa; health de três imagens; zero referência de projeto entre repos | 10% |
-| 3 | Deploy inicial via merge nas duas principais | 2 | Imagens SHA, bancos persistentes, Deployments/Services e CD demonstráveis | 10% |
-| 4 | Veículos: CRUD, estados, reserva idempotente e outbox | 2 | Testes de concorrência/transições; snapshot persistido atomicamente | 15% |
-| 5 | Vendas: projeção e duas listagens locais | 4 | Cadastro/edição refletem após retry; ordem correta; listagens operam com Veículos parado | 10% |
-| 6 | Vendas: compra, CPF, idempotência e worker de reserva | 4–5 | Uma reserva para compras concorrentes; preço validado; retomada após timeout | 10% |
-| 7 | Mock + webhook + confirmação/cancelamento completos | 6 | Dois fluxos ponta a ponta passam; cancelar permite nova compra | 15% |
-| 8 | Finalizar testes de falhas e gates >=80%; validar duas réplicas de Vendas | 3–7 | Todos os testes verdes e relatórios verificáveis; reinícios não perdem resultado | 5% |
-| 9 | Reserva de entrega: README, ensaio, correções e vídeo | 8 | Clone limpo reproduz; vídeo mostra infra, comunicação, CI e cobertura | 15% |
-| 10 | PDF com links, revisão de acessos e submissão | 9 | Dois repos, vídeo e evidências acessíveis; comprovante de envio | 5% |
-
-Prioridade para corte se o prazo apertar: retirar primeiro dashboard novo, UI do Mock, HPA e refinamentos cosméticos. Não retirar segregação das listagens/bancos, HTTP, webhook, CPF/data, proteção contra dupla venda, recuperação de operações aceitas, CI/CD, testes/80%, Deployments/Services, README, vídeo ou PDF.
-
-### Checklist do vídeo e entrega
-
-- [ ] Mostrar os dois repositórios e responsabilidade de cada executável.
-- [ ] Mostrar merge de PR disparando deploy e imagens implantadas identificadas pelo SHA.
-- [ ] Mostrar Deployments, Services, réplicas e dois bancos distintos, sem expor secrets.
-- [ ] Cadastrar e editar veículo em Veículos; mostrar reflexo em disponíveis de Vendas e ordenação com mais de um preço.
-- [ ] Comprar como usuário autenticado com CPF de teste; mostrar Pending/Reserved, sem vendido prematuro.
-- [ ] Aprovar no Mock; mostrar webhook, Completed/Sold, CPF/data persistidos e catálogo de vendidos ordenado.
-- [ ] Reenviar callback sem duplicar venda; demonstrar cancelamento de outro veículo e disponibilidade restaurada.
-- [ ] Mostrar testes passando e relatórios >=80% dos dois serviços, mais Mock.
-- [ ] Conferir README de cada repo com execução local, testes, URLs/contratos, migrações, consistência eventual e limitações do Mock.
-- [ ] Produzir PDF final de links e conferir permissões de acesso dos avaliadores.
 
 Definição final de pronto: todos os requisitos da matriz da seção 2 possuem implementação verificável e evidência acessível, os pipelines dos commits entregues passam, e a demonstração usa as mesmas versões publicadas. Este plano é o guia; PDF e vídeo de entrega serão produzidos após a implementação.
