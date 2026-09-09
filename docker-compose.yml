@@ -114,4 +114,5 @@ volumes:
 
 networks:
   autosale-integration:
-    external: true
+    name: autosale-integration
+    driver: bridge

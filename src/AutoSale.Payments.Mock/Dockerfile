@@ -13,6 +13,11 @@ RUN dotnet publish "src/AutoSale.Payments.Mock/AutoSale.Payments.Mock.csproj" --
 
 FROM base AS final
 WORKDIR /app
+
 COPY --from=build /app/publish .
+
+RUN mkdir -p /data \
+	&& chown -R $APP_UID:$APP_UID /data
+
 USER $APP_UID
 ENTRYPOINT ["dotnet", "AutoSale.Payments.Mock.dll"]
