@@ -12,6 +12,13 @@ COPY . .
 RUN dotnet publish "src/AutoSale.Payments.Mock/AutoSale.Payments.Mock.csproj" --configuration Release --no-restore --output /app/publish /p:UseAppHost=false
 
 FROM base AS final
+
+RUN apk add --no-cache \
+    icu-libs \
+    icu-data-full
+
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
+
 WORKDIR /app
 
 COPY --from=build /app/publish .

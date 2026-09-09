@@ -42,6 +42,14 @@ public sealed class PaymentService(PaymentsDbContext dbContext, TimeProvider tim
     public Task<Payment?> GetAsync(Guid paymentCode, CancellationToken cancellationToken) =>
         dbContext.Payments.AsNoTracking().SingleOrDefaultAsync(x => x.PaymentCode == paymentCode, cancellationToken);
 
+    public Task<List<Payment>> ListAsync(CancellationToken cancellationToken) =>
+        dbContext.Payments.AsNoTracking()
+            .OrderBy(x => x.Status == PaymentStatus.Pending ? 0 : 1)
+            .ThenBy(x => x.Status)
+            .ThenBy(x => x.CreatedAtUtc)
+            .ThenBy(x => x.PaymentCode)
+            .ToListAsync(cancellationToken);
+
     public Task<List<Payment>> ListPendingAsync(CancellationToken cancellationToken) =>
         dbContext.Payments.AsNoTracking()
             .Where(x => x.Status == PaymentStatus.Pending)

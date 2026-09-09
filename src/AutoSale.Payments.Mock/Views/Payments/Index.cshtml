@@ -1,3 +1,4 @@
+@using System.Globalization
 @model IReadOnlyList<PaymentResponse>
 @{
     ViewData["Title"] = "Pagamentos pendentes";
@@ -50,7 +51,7 @@
                     <tr>
                         <td><code>@payment.PaymentCode</code></td>
                         <td><code>@payment.SaleId</code></td>
-                        <td class="amount">@payment.Amount.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"))</td>
+                        <td class="amount">@payment.Amount.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))</td>
                         <td>@payment.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
                         <td class="actions">
                             <form method="post" action="/payments/@payment.PaymentCode/approve">

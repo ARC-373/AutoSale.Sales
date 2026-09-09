@@ -36,57 +36,57 @@ public sealed class ReceivePaymentResultHandler :
             return Result.Failure<PaymentResultReceipt>(validation.Error);
         }
 
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(
-            IsolationLevel.ReadCommitted, cancellationToken);
-        var sale = await _saleRepository.GetByPaymentCodeForUpdateAsync(command.PaymentCode, cancellationToken);
-        if (sale is null)
+        return await _unitOfWork.ExecuteInTransactionAsync(IsolationLevel.ReadCommitted, async ct =>
         {
-            return Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentNotFound);
-        }
-
-        var eventCallback = await _callbackRepository.GetByEventIdAsync(command.EventId, cancellationToken);
-        if (eventCallback is not null)
-        {
-            if (eventCallback.PaymentCode != command.PaymentCode)
+            var sale = await _saleRepository.GetByPaymentCodeForUpdateAsync(command.PaymentCode, ct);
+            if (sale is null)
             {
-                return Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentEventConflict);
+                return Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentNotFound);
             }
 
-            return eventCallback.Outcome == command.Outcome
-                ? Result.Success(new PaymentResultReceipt(SaleDto.FromDomain(sale), true))
-                : Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentResultConflict);
-        }
+            var eventCallback = await _callbackRepository.GetByEventIdAsync(command.EventId, ct);
+            if (eventCallback is not null)
+            {
+                if (eventCallback.PaymentCode != command.PaymentCode)
+                {
+                    return Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentEventConflict);
+                }
 
-        var paymentCallback = await _callbackRepository.GetByPaymentCodeAsync(command.PaymentCode, cancellationToken);
-        if (paymentCallback is not null)
-        {
-            return paymentCallback.Outcome == command.Outcome
-                ? Result.Success(new PaymentResultReceipt(SaleDto.FromDomain(sale), true))
-                : Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentResultConflict);
-        }
+                return eventCallback.Outcome == command.Outcome
+                    ? Result.Success(new PaymentResultReceipt(SaleDto.FromDomain(sale), true))
+                    : Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentResultConflict);
+            }
 
-        if (sale.State != SaleStatus.AwaitingPayment)
-        {
-            return Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentStateConflict);
-        }
+            var paymentCallback = await _callbackRepository.GetByPaymentCodeAsync(command.PaymentCode, ct);
+            if (paymentCallback is not null)
+            {
+                return paymentCallback.Outcome == command.Outcome
+                    ? Result.Success(new PaymentResultReceipt(SaleDto.FromDomain(sale), true))
+                    : Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentResultConflict);
+            }
 
-        var callbackResult = PaymentCallback.Create(command.PaymentCode, command.EventId, command.Outcome,
-            command.OccurredAtUtc, _clock.UtcNow);
-        if (callbackResult.IsFailure)
-        {
-            return Result.Failure<PaymentResultReceipt>(callbackResult.Error);
-        }
+            if (sale.State != SaleStatus.AwaitingPayment)
+            {
+                return Result.Failure<PaymentResultReceipt>(ApplicationErrors.PaymentStateConflict);
+            }
 
-        var recordPayment = sale.RecordPayment(command.Outcome, command.OccurredAtUtc);
-        if (recordPayment.IsFailure)
-        {
-            return Result.Failure<PaymentResultReceipt>(recordPayment.Error);
-        }
+            var callbackResult = PaymentCallback.Create(command.PaymentCode, command.EventId, command.Outcome,
+                command.OccurredAtUtc, _clock.UtcNow);
+            if (callbackResult.IsFailure)
+            {
+                return Result.Failure<PaymentResultReceipt>(callbackResult.Error);
+            }
 
-        await _callbackRepository.AddAsync(callbackResult.Value!, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return Result.Success(new PaymentResultReceipt(SaleDto.FromDomain(sale), false));
+            var recordPayment = sale.RecordPayment(command.Outcome, command.OccurredAtUtc);
+            if (recordPayment.IsFailure)
+            {
+                return Result.Failure<PaymentResultReceipt>(recordPayment.Error);
+            }
+
+            await _callbackRepository.AddAsync(callbackResult.Value!, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            return Result.Success(new PaymentResultReceipt(SaleDto.FromDomain(sale), false));
+        }, cancellationToken);
     }
 
     private static Result Validate(ReceivePaymentResultCommand command)

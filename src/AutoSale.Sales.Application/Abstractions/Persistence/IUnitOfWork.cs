@@ -4,12 +4,8 @@ namespace AutoSale.Application.Abstractions.Persistence;
 
 public interface IUnitOfWork
 {
-    Task<ITransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken);
+    Task<TResult> ExecuteInTransactionAsync<TResult>(IsolationLevel isolationLevel,
+        Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
-}
-
-public interface ITransaction : IAsyncDisposable
-{
-    Task CommitAsync(CancellationToken cancellationToken);
 }

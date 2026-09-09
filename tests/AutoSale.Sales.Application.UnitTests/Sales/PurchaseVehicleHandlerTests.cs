@@ -22,7 +22,7 @@ public sealed class PurchaseVehicleHandlerTests
         Assert.Single(repository.Sales);
         Assert.Equal(50_000m, repository.Sales[0].ExpectedPrice);
         Assert.Equal("buyer-1", repository.Sales[0].BuyerSubject);
-        Assert.True(unitOfWork.Transaction.Committed);
+        Assert.Equal(1, unitOfWork.TransactionExecutionCount);
     }
 
     [Fact]

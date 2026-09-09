@@ -116,9 +116,12 @@ public sealed class ApiEndpointTests : IClassFixture<ApiFactory>
     public async Task SaleQueryAndLiveness_AreMapped()
     {
         var sale = await _client.GetAsync($"/api/v1/sales/{ApiFactory.SaleId:D}");
+        var sales = await _client.GetAsync("/api/v1/sales");
         var live = await _client.GetAsync("/health/live");
 
         Assert.Equal(HttpStatusCode.OK, sale.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, sales.StatusCode);
+        Assert.Contains("\"totalCount\":1", await sales.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, live.StatusCode);
     }
 }

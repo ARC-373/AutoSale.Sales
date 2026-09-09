@@ -56,6 +56,35 @@ public sealed class PaymentsApiTests(MockApiFactory factory) : IClassFixture<Moc
     }
 
     [Fact]
+    public async Task Operator_can_list_all_payments_with_pending_first()
+    {
+        var paidCode = Guid.NewGuid();
+        var cancelledCode = Guid.NewGuid();
+        var pendingCode = Guid.NewGuid();
+        await PutPayment(paidCode, Request(Guid.NewGuid()));
+        await PutPayment(cancelledCode, Request(Guid.NewGuid()));
+        await PutPayment(pendingCode, Request(Guid.NewGuid()));
+        await OperatorPost($"/api/v1/payments/{paidCode}/approve");
+        await OperatorPost($"/api/v1/payments/{cancelledCode}/reject");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/payments");
+        request.Headers.Add("X-Operator-Key", "operator-test-key");
+        var response = await _client.SendAsync(request);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new JsonStringEnumConverter());
+        var payments = await response.Content.ReadFromJsonAsync<List<PaymentResponse>>(options);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(payments);
+        Assert.Contains(payments, payment => payment.PaymentCode == paidCode);
+        Assert.Contains(payments, payment => payment.PaymentCode == cancelledCode);
+        Assert.Contains(payments, payment => payment.PaymentCode == pendingCode);
+        Assert.True(payments.TakeWhile(payment => payment.Status == PaymentStatus.Pending).Any());
+        Assert.DoesNotContain(payments.SkipWhile(payment => payment.Status == PaymentStatus.Pending),
+            payment => payment.Status == PaymentStatus.Pending);
+    }
+
+    [Fact]
     public async Task Opposite_decision_returns_conflict()
     {
         var paymentCode = Guid.NewGuid();

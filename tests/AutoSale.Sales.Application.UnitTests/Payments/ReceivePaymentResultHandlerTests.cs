@@ -24,7 +24,7 @@ public sealed class ReceivePaymentResultHandlerTests
         Assert.False(result.Value!.IsDuplicate);
         Assert.Equal(expectedState, sale.State);
         Assert.Single(callbacks.Callbacks);
-        Assert.True(unitOfWork.Transaction.Committed);
+        Assert.Equal(1, unitOfWork.TransactionExecutionCount);
     }
 
     [Fact]

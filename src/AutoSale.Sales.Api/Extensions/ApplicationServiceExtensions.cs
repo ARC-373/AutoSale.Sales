@@ -6,6 +6,7 @@ using AutoSale.Application.Common;
 using AutoSale.Application.Payments.ReceiveResult;
 using AutoSale.Application.Sales;
 using AutoSale.Application.Sales.GetById;
+using AutoSale.Application.Sales.List;
 using AutoSale.Application.Sales.ListSold;
 using AutoSale.Application.Sales.Purchase;
 using AutoSale.SharedKernel.Results;
@@ -18,6 +19,8 @@ public static class ApplicationServiceExtensions
     {
         services.AddScoped<ICommandHandler<PurchaseVehicleCommand, Result<SaleDto>>, PurchaseVehicleHandler>();
         services.AddScoped<IQueryHandler<GetSaleByIdQuery, Result<SaleDto>>, GetSaleByIdHandler>();
+        services.AddScoped<IQueryHandler<ListSalesQuery,
+            Result<PagedResult<SaleDto>>>, ListSalesHandler>();
         services.AddScoped<IQueryHandler<ListAvailableVehiclesQuery,
             Result<PagedResult<AvailableVehicleDto>>>, ListAvailableVehiclesHandler>();
         services.AddScoped<IQueryHandler<ListSoldVehiclesQuery,

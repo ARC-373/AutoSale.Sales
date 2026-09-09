@@ -1,7 +1,6 @@
 using System.Data;
 using AutoSale.Application.Abstractions.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace AutoSale.Infrastructure.Persistence;
 
@@ -14,10 +13,20 @@ public sealed class UnitOfWork : IUnitOfWork
         _dbContext = dbContext;
     }
 
-    public async Task<ITransaction> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken)
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(IsolationLevel isolationLevel,
+        Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken)
     {
-        var transaction = await _dbContext.Database.BeginTransactionAsync(isolationLevel, cancellationToken);
-        return new EfCoreTransaction(transaction);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(
+                isolationLevel, cancellationToken);
+            var result = await operation(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
     }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
@@ -25,17 +34,4 @@ public sealed class UnitOfWork : IUnitOfWork
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private sealed class EfCoreTransaction : ITransaction
-    {
-        private readonly IDbContextTransaction _transaction;
-
-        public EfCoreTransaction(IDbContextTransaction transaction)
-        {
-            _transaction = transaction;
-        }
-
-        public Task CommitAsync(CancellationToken cancellationToken) => _transaction.CommitAsync(cancellationToken);
-
-        public ValueTask DisposeAsync() => _transaction.DisposeAsync();
-    }
 }

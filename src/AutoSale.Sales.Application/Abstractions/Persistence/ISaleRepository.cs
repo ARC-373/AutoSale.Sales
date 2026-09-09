@@ -13,5 +13,6 @@ public interface ISaleRepository
     Task<IReadOnlyCollection<Sale>> ClaimPendingAsync(string leaseOwner, DateTimeOffset nowUtc,
         DateTimeOffset leaseExpiresAtUtc, int batchSize, CancellationToken cancellationToken);
     Task AddAsync(Sale sale, CancellationToken cancellationToken);
+    Task<PagedResult<SaleDto>> ListAsync(int page, int pageSize, CancellationToken cancellationToken);
     Task<PagedResult<SoldVehicleDto>> ListSoldAsync(int page, int pageSize, CancellationToken cancellationToken);
 }

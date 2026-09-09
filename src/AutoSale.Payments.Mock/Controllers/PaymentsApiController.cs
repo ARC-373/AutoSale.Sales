@@ -10,6 +10,15 @@ namespace AutoSale.Payments.Mock.Controllers;
 [Route("api/v1/payments")]
 public sealed class PaymentsApiController(PaymentService paymentService) : ControllerBase
 {
+    [HttpGet]
+    [Authorize(Policy = ApiKeySchemes.OperatorPolicy)]
+    public async Task<ActionResult<IReadOnlyCollection<PaymentResponse>>> List(
+        CancellationToken cancellationToken)
+    {
+        var payments = await paymentService.ListAsync(cancellationToken);
+        return Ok(payments.Select(PaymentResponse.From).ToList());
+    }
+
     [HttpPut("{paymentCode:guid}")]
     [Authorize(Policy = ApiKeySchemes.SalesPolicy)]
     public async Task<ActionResult<PaymentResponse>> Create(Guid paymentCode, CreatePaymentRequest request,

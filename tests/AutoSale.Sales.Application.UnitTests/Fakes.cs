@@ -26,28 +26,20 @@ internal sealed class FakeCurrentUser(string? subject, bool isAdmin = false) : I
 internal sealed class FakeUnitOfWork : IUnitOfWork
 {
     public int SaveCount { get; private set; }
-    public FakeTransaction Transaction { get; } = new();
+    public int TransactionExecutionCount { get; private set; }
 
-    public Task<ITransaction> BeginTransactionAsync(IsolationLevel isolationLevel,
-        CancellationToken cancellationToken) => Task.FromResult<ITransaction>(Transaction);
+    public async Task<TResult> ExecuteInTransactionAsync<TResult>(IsolationLevel isolationLevel,
+        Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken)
+    {
+        TransactionExecutionCount++;
+        return await operation(cancellationToken);
+    }
 
     public Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         SaveCount++;
         return Task.CompletedTask;
     }
-}
-
-internal sealed class FakeTransaction : ITransaction
-{
-    public bool Committed { get; private set; }
-    public Task CommitAsync(CancellationToken cancellationToken)
-    {
-        Committed = true;
-        return Task.CompletedTask;
-    }
-
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 internal sealed class FakeSaleRepository : ISaleRepository
@@ -72,6 +64,14 @@ internal sealed class FakeSaleRepository : ISaleRepository
     {
         Sales.Add(sale);
         return Task.CompletedTask;
+    }
+
+    public Task<PagedResult<SaleDto>> ListAsync(int page, int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var sales = Sales.OrderBy(sale => sale.CreatedAtUtc).ThenBy(sale => sale.Id)
+            .Select(SaleDto.FromDomain).ToArray();
+        return Task.FromResult(new PagedResult<SaleDto>(sales, page, pageSize, sales.Length));
     }
 
     public Task<PagedResult<SoldVehicleDto>> ListSoldAsync(int page, int pageSize,

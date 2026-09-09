@@ -5,6 +5,7 @@ using AutoSale.Application.Abstractions.Messaging;
 using AutoSale.Application.Common;
 using AutoSale.Application.Sales;
 using AutoSale.Application.Sales.GetById;
+using AutoSale.Application.Sales.List;
 using AutoSale.Application.Sales.ListSold;
 using AutoSale.SharedKernel.Results;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,21 @@ namespace AutoSale.Api.Controllers;
 [Route("api/v1/sales")]
 public sealed class SalesController : ControllerBase
 {
+    [HttpGet]
+    [Authorize]
+    [ProducesResponseType<PagedResponse<SaleResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<PagedResponse<SaleResponse>>> ListAsync(
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        [FromServices] IQueryHandler<ListSalesQuery, Result<PagedResult<SaleDto>>> handler,
+        CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new ListSalesQuery(page ?? 1, pageSize ?? 20), cancellationToken);
+        return result.ToActionResult(this, pageResult =>
+            PagedResponse<SaleResponse>.From(pageResult, SaleResponse.FromDto));
+    }
+
     [HttpGet("sold")]
     [AllowAnonymous]
     [ProducesResponseType<PagedResponse<SoldVehicleResponse>>(StatusCodes.Status200OK)]

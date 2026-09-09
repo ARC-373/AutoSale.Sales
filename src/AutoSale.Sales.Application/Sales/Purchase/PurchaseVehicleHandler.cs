@@ -43,29 +43,29 @@ public sealed class PurchaseVehicleHandler : ICommandHandler<PurchaseVehicleComm
         var idempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = PurchaseRequestHash.Create(command.VehicleId, validation.Value!, command.ExpectedPrice);
 
-        await using var transaction = await _unitOfWork.BeginTransactionAsync(
-            IsolationLevel.ReadCommitted, cancellationToken);
-        var existing = await _saleRepository.GetByBuyerAndIdempotencyKeyAsync(
-            buyerSubject, idempotencyKey, cancellationToken);
-
-        if (existing is not null)
+        return await _unitOfWork.ExecuteInTransactionAsync(IsolationLevel.ReadCommitted, async ct =>
         {
-            return string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal)
-                ? Result.Success(SaleDto.FromDomain(existing))
-                : Result.Failure<SaleDto>(ApplicationErrors.IdempotencyConflict);
-        }
+            var existing = await _saleRepository.GetByBuyerAndIdempotencyKeyAsync(
+                buyerSubject, idempotencyKey, ct);
 
-        var saleResult = Sale.Create(command.VehicleId, buyerSubject, validation.Value!, command.ExpectedPrice,
-            idempotencyKey, requestHash, _clock.UtcNow);
-        if (saleResult.IsFailure)
-        {
-            return Result.Failure<SaleDto>(saleResult.Error);
-        }
+            if (existing is not null)
+            {
+                return string.Equals(existing.RequestHash, requestHash, StringComparison.Ordinal)
+                    ? Result.Success(SaleDto.FromDomain(existing))
+                    : Result.Failure<SaleDto>(ApplicationErrors.IdempotencyConflict);
+            }
 
-        var sale = saleResult.Value!;
-        await _saleRepository.AddAsync(sale, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return Result.Success(SaleDto.FromDomain(sale));
+            var saleResult = Sale.Create(command.VehicleId, buyerSubject, validation.Value!, command.ExpectedPrice,
+                idempotencyKey, requestHash, _clock.UtcNow);
+            if (saleResult.IsFailure)
+            {
+                return Result.Failure<SaleDto>(saleResult.Error);
+            }
+
+            var sale = saleResult.Value!;
+            await _saleRepository.AddAsync(sale, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            return Result.Success(SaleDto.FromDomain(sale));
+        }, cancellationToken);
     }
 }

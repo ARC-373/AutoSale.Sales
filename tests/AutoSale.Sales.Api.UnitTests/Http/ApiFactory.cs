@@ -9,6 +9,7 @@ using AutoSale.Application.Common;
 using AutoSale.Application.Payments.ReceiveResult;
 using AutoSale.Application.Sales;
 using AutoSale.Application.Sales.GetById;
+using AutoSale.Application.Sales.List;
 using AutoSale.Application.Sales.ListSold;
 using AutoSale.Application.Sales.Purchase;
 using AutoSale.Domain.Sales;
@@ -76,6 +77,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             new FakeCommandHandler<PurchaseVehicleCommand, Result<SaleDto>>(_ => Result.Success(Sale())));
         Replace<IQueryHandler<GetSaleByIdQuery, Result<SaleDto>>>(services,
             new FakeQueryHandler<GetSaleByIdQuery, Result<SaleDto>>(_ => Result.Success(Sale())));
+        Replace<IQueryHandler<ListSalesQuery, Result<PagedResult<SaleDto>>>>(services,
+            new FakeQueryHandler<ListSalesQuery, Result<PagedResult<SaleDto>>>(_ =>
+                Result.Success(new PagedResult<SaleDto>([Sale()], 1, 20, 1))));
         Replace<IQueryHandler<ListAvailableVehiclesQuery, Result<PagedResult<AvailableVehicleDto>>>>(services,
             new FakeQueryHandler<ListAvailableVehiclesQuery, Result<PagedResult<AvailableVehicleDto>>>(_ =>
                 Result.Success(new PagedResult<AvailableVehicleDto>(

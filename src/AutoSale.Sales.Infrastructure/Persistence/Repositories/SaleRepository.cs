@@ -44,8 +44,11 @@ public sealed class SaleRepository : ISaleRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(leaseOwner);
         ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
 
-        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-        var saleIds = await _dbContext.Database.SqlQuery<Guid>($"""
+        var strategy = _dbContext.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            var saleIds = await _dbContext.Database.SqlQuery<Guid>($"""
                 SELECT id AS "Value"
                 FROM sales
                 WHERE state IN ('Reserving', 'AwaitingPayment', 'ConfirmingVehicle', 'CancellingVehicle')
@@ -56,28 +59,41 @@ public sealed class SaleRepository : ISaleRepository
                 FOR UPDATE SKIP LOCKED
                 LIMIT {batchSize}
                 """)
-            .ToListAsync(cancellationToken);
-        var sales = await _dbContext.Sales.Where(sale => saleIds.Contains(sale.Id))
-            .OrderBy(sale => sale.CreatedAtUtc).ThenBy(sale => sale.Id)
-            .ToListAsync(cancellationToken);
+                .ToListAsync(cancellationToken);
+            var sales = await _dbContext.Sales.Where(sale => saleIds.Contains(sale.Id))
+                .OrderBy(sale => sale.CreatedAtUtc).ThenBy(sale => sale.Id)
+                .ToListAsync(cancellationToken);
 
-        foreach (var sale in sales)
-        {
-            var lease = sale.AcquireLease(leaseOwner, leaseExpiresAtUtc, nowUtc);
-            if (lease.IsFailure)
+            foreach (var sale in sales)
             {
-                throw new InvalidOperationException(lease.Error.Description);
+                var lease = sale.AcquireLease(leaseOwner, leaseExpiresAtUtc, nowUtc);
+                if (lease.IsFailure)
+                {
+                    throw new InvalidOperationException(lease.Error.Description);
+                }
             }
-        }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return sales;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return (IReadOnlyCollection<Sale>)sales;
+        });
     }
 
     public async Task AddAsync(Sale sale, CancellationToken cancellationToken)
     {
         await _dbContext.Sales.AddAsync(sale, cancellationToken);
+    }
+
+    public async Task<PagedResult<SaleDto>> ListAsync(int page, int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var query = _dbContext.Sales.AsNoTracking();
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query.OrderBy(sale => sale.CreatedAtUtc).ThenBy(sale => sale.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(sale => SaleDto.FromDomain(sale))
+            .ToListAsync(cancellationToken);
+        return new PagedResult<SaleDto>(items, page, pageSize, totalCount);
     }
 
     public async Task<PagedResult<SoldVehicleDto>> ListSoldAsync(int page, int pageSize,
