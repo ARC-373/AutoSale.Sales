@@ -36,8 +36,8 @@ public static class DependencyInjection
             .BindConfiguration(VehiclesOptions.SectionName)
             .Validate(options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
                 "Integrations:Vehicles:BaseUrl must be an absolute URL.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.ServiceKey),
-                "Integrations:Vehicles:ServiceKey is required.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.SalesToVehiclesServiceKey),
+                "Integrations:Vehicles:SalesToVehiclesServiceKey is required.")
             .Validate(options => options.TimeoutSeconds is >= 1 and <= 60,
                 "Integrations:Vehicles:TimeoutSeconds must be between 1 and 60.")
             .ValidateOnStart();

@@ -52,7 +52,7 @@ public sealed class AuthorizationTests
     {
         var values = new Dictionary<string, string?>
         {
-            ["IntegrationAuthentication:VehiclesServiceKey"] = "vehicles-key",
+            ["IntegrationAuthentication:VehiclesToSalesServiceKey"] = "vehicles-key",
             ["IntegrationAuthentication:PaymentWebhookKey"] = "payment-key"
         };
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();

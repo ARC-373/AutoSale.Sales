@@ -9,7 +9,8 @@ public static class AuthorizationExtensions
     public static IServiceCollection AddAutoSaleAuthorization(this IServiceCollection services,
         IConfiguration configuration)
     {
-        var vehiclesKey = GetRequiredSecret(configuration, "IntegrationAuthentication:VehiclesServiceKey");
+        var vehiclesToSalesServiceKey = GetRequiredSecret(configuration,
+            "IntegrationAuthentication:VehiclesToSalesServiceKey");
         var paymentWebhookKey = GetRequiredSecret(configuration, "IntegrationAuthentication:PaymentWebhookKey");
 
         services.AddAuthorizationBuilder()
@@ -24,7 +25,7 @@ public static class AuthorizationExtensions
             })
             .AddPolicy(AuthorizationPolicies.VehiclesIntegration, policy =>
                 policy.RequireAssertion(context => HasValidHeader(
-                    context, AuthorizationPolicies.ServiceKeyHeader, vehiclesKey)))
+                    context, AuthorizationPolicies.ServiceKeyHeader, vehiclesToSalesServiceKey)))
             .AddPolicy(AuthorizationPolicies.PaymentWebhook, policy =>
                 policy.RequireAssertion(context => HasValidHeader(
                     context, AuthorizationPolicies.PaymentWebhookKeyHeader, paymentWebhookKey)));

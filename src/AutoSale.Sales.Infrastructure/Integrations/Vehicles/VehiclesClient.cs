@@ -15,7 +15,7 @@ public sealed class VehiclesClient : HttpIntegrationClient, IVehiclesClient
     };
 
     public VehiclesClient(HttpClient httpClient, IOptions<VehiclesOptions> options)
-        : base(httpClient, options.Value.ServiceKey)
+        : base(httpClient, options.Value.SalesToVehiclesServiceKey)
     {
     }
 

@@ -1,4 +1,14 @@
-# FIAP Auto Sales API
+# FIAP AutoSale — Sales e Payments Mock
+
+> A solução da Fase 4 contém dois executáveis: a API de Vendas em `http://localhost:8081` e o WebApp MVC de pagamentos em `http://localhost:8082`. O Mock usa SQLite próprio, recebe pagamentos de Vendas com `X-Service-Key`, permite aprovação/cancelamento manual e entrega o resultado ao webhook de Vendas. A interface operacional abre diretamente na raiz do Mock; sua API/Scalar fica em `/docs`.
+
+Para executar somente o Mock durante o desenvolvimento:
+
+```powershell
+dotnet run --project src/AutoSale.Payments.Mock
+```
+
+As chaves de `appsettings.Development.json` são exclusivamente locais. Em ambientes publicados, configure `Authentication__SalesServiceKey`, `Authentication__OperatorKey`, `Integrations__Sales__WebhookKey`, `Integrations__Sales__BaseUrl` e `ConnectionStrings__Payments` por secrets.
 
 API REST para a plataforma de revenda de veículos do Tech Challenge da FIAP (SOAT Fase 3 Prova Substitutiva). A solução permite que administradores cadastrem e atualizem veículos e que compradores previamente cadastrados no Amazon Cognito consultem o catálogo e finalizem uma compra de forma segura.
 

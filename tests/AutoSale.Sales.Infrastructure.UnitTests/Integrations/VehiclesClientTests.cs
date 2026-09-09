@@ -98,7 +98,8 @@ public sealed class VehiclesClientTests
     private static VehiclesClient CreateClient(StubHttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://vehicles.test/") };
-        return new VehiclesClient(httpClient, Options.Create(new VehiclesOptions { ServiceKey = "service-secret" }));
+        return new VehiclesClient(httpClient,
+            Options.Create(new VehiclesOptions { SalesToVehiclesServiceKey = "service-secret" }));
     }
 
     private static StubHttpMessageHandler Respond(HttpStatusCode status, string body) =>

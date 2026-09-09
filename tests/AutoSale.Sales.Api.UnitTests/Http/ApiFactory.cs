@@ -27,7 +27,7 @@ using Microsoft.Extensions.Options;
 
 namespace AutoSale.Sales.Api.UnitTests.Http;
 
-internal sealed class ApiFactory : WebApplicationFactory<Program>
+public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     internal static readonly Guid SaleId = Guid.Parse("01900000-0000-7000-8000-000000000002");
     internal static readonly Guid VehicleId = Guid.Parse("01900000-0000-7000-8000-000000000001");
@@ -36,14 +36,22 @@ internal sealed class ApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.UseSetting("ConnectionStrings:Sales", "Host=localhost;Database=api_test");
+        builder.UseSetting("IntegrationAuthentication:VehiclesToSalesServiceKey", "vehicles-inbound");
+        builder.UseSetting("IntegrationAuthentication:PaymentWebhookKey", "payment-webhook");
+        builder.UseSetting("Integrations:Vehicles:BaseUrl", "http://vehicles.test");
+        builder.UseSetting("Integrations:Vehicles:SalesToVehiclesServiceKey", "vehicles-outbound");
+        builder.UseSetting("Integrations:Payments:BaseUrl", "http://payments.test");
+        builder.UseSetting("Integrations:Payments:ServiceKey", "payments-outbound");
+        builder.UseSetting("Database:ApplyMigrationsOnStartup", "false");
         builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Sales"] = "Host=localhost;Database=api_test",
-                ["IntegrationAuthentication:VehiclesServiceKey"] = "vehicles-inbound",
+                ["IntegrationAuthentication:VehiclesToSalesServiceKey"] = "vehicles-inbound",
                 ["IntegrationAuthentication:PaymentWebhookKey"] = "payment-webhook",
                 ["Integrations:Vehicles:BaseUrl"] = "http://vehicles.test",
-                ["Integrations:Vehicles:ServiceKey"] = "vehicles-outbound",
+                ["Integrations:Vehicles:SalesToVehiclesServiceKey"] = "vehicles-outbound",
                 ["Integrations:Payments:BaseUrl"] = "http://payments.test",
                 ["Integrations:Payments:ServiceKey"] = "payments-outbound",
                 ["Database:ApplyMigrationsOnStartup"] = "false"
@@ -51,6 +59,7 @@ internal sealed class ApiFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IHostedService>();
+            services.AddLogging(logging => logging.ClearProviders());
             ReplaceHandlers(services);
             services.AddAuthentication(options =>
             {
