@@ -29,14 +29,14 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore AutoSale.slnx
+        run: dotnet restore AutoSale.Sales.slnx
 
       - name: Build
-        run: dotnet build AutoSale.slnx --configuration $CONFIGURATION --no-restore
+        run: dotnet build AutoSale.Sales.slnx --configuration $CONFIGURATION --no-restore
 
       - name: Test
         run: >
-          dotnet test AutoSale.slnx --configuration $CONFIGURATION --no-build
+          dotnet test AutoSale.Sales.slnx --configuration $CONFIGURATION --no-build
           --logger "trx;LogFileName=test-results.trx"
 
       - name: Upload test results
@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Build API image
-        run: docker compose build api
+        run: docker compose build sales-api
 
   compose-deploy-validation:
     name: Validate Docker Compose deployment
@@ -74,14 +74,20 @@ jobs:
           POSTGRES_DB=autosale
           POSTGRES_USER=autosale
           POSTGRES_PASSWORD=autosale-ci-password
-          POSTGRES_PORT=15432
-          API_PORT=18080
+          POSTGRES_PORT=15433
+          API_PORT=18081
           PGADMIN_EMAIL=admin@example.test
           PGADMIN_PASSWORD=pgadmin-ci-password
           PGADMIN_PORT=15050
-          OTEL_GRPC_PORT=14317
-          OTEL_HTTP_PORT=14318
+          OTEL_GRPC_PORT=14327
+          OTEL_HTTP_PORT=14328
           APP_VERSION=ci
+          VEHICLES_BASE_URL=http://vehicles-api:18080
+          SALES_TO_VEHICLES_SERVICE_KEY=ci-sales-to-vehicles-key
+          VEHICLES_TO_SALES_SERVICE_KEY=ci-vehicles-to-sales-key
+          PAYMENTS_SERVICE_KEY=ci-payments-service-key
+          PAYMENT_WEBHOOK_KEY=ci-payment-webhook-key
+          PAYMENTS_OPERATOR_KEY=ci-operator-key
           AUTHORITY=https://example.invalid
           CLIENT_ID=autosale-ci
           AUTHORIZATION_ENDPOINT=https://example.invalid/oauth2/authorize
@@ -92,12 +98,12 @@ jobs:
         run: docker compose config --quiet
 
       - name: Start API stack
-        run: docker compose up --detach --build api
+        run: docker compose up --detach --build sales-api
 
       - name: Wait for API health check
         run: |
           for attempt in {1..30}; do
-            if curl --fail --silent --show-error http://localhost:18080/health; then
+            if curl --fail --silent --show-error http://localhost:18081/health; then
               exit 0
             fi
 
