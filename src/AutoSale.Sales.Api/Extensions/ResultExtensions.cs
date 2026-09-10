@@ -42,6 +42,7 @@ public static class ResultExtensions
             Instance = controller.HttpContext.Request.Path
         };
         problem.Extensions["code"] = error.Code;
+        problem.Extensions["traceId"] = controller.HttpContext.TraceIdentifier;
 
         return new ObjectResult(problem) { StatusCode = statusCode };
     }

@@ -17,10 +17,16 @@
     <Project Path="src/AutoSale.Sales.Application/AutoSale.Sales.Application.csproj" />
     <Project Path="src/AutoSale.Sales.Domain/AutoSale.Sales.Domain.csproj" />
     <Project Path="src/AutoSale.Sales.Infrastructure/AutoSale.Sales.Infrastructure.csproj" />
+    <Project Path="src/AutoSale.Payments.Mock/AutoSale.Payments.Mock.csproj" />
   </Folder>
   <Folder Name="/src/BuildingBlocks/">
     <Project Path="src/BuildingBlocks/AutoSale.SharedKernel/AutoSale.SharedKernel.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AutoSale.Sales.Api.UnitTests/AutoSale.Sales.Api.UnitTests.csproj" />
+    <Project Path="tests/AutoSale.Sales.Application.UnitTests/AutoSale.Sales.Application.UnitTests.csproj" />
+    <Project Path="tests/AutoSale.Sales.Domain.UnitTests/AutoSale.Sales.Domain.UnitTests.csproj" />
+    <Project Path="tests/AutoSale.Sales.Infrastructure.UnitTests/AutoSale.Sales.Infrastructure.UnitTests.csproj" />
+    <Project Path="tests/AutoSale.Payments.Mock.Tests/AutoSale.Payments.Mock.Tests.csproj" />
   </Folder>
 </Solution>

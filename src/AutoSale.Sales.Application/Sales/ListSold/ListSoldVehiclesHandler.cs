@@ -5,7 +5,8 @@ using AutoSale.SharedKernel.Results;
 
 namespace AutoSale.Application.Sales.ListSold;
 
-public sealed class ListSoldVehiclesHandler : IQueryHandler<ListSoldVehiclesQuery, Result<PagedResult<SaleDto>>>
+public sealed class ListSoldVehiclesHandler :
+    IQueryHandler<ListSoldVehiclesQuery, Result<PagedResult<SoldVehicleDto>>>
 {
     private readonly ISaleRepository _saleRepository;
 
@@ -14,15 +15,15 @@ public sealed class ListSoldVehiclesHandler : IQueryHandler<ListSoldVehiclesQuer
         _saleRepository = saleRepository;
     }
 
-    public async Task<Result<PagedResult<SaleDto>>> HandleAsync(ListSoldVehiclesQuery query, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<SoldVehicleDto>>> HandleAsync(ListSoldVehiclesQuery query,
+        CancellationToken cancellationToken)
     {
         var validation = PagingValidator.Validate(query.Page, query.PageSize);
         if (validation.IsFailure)
         {
-            return Result.Failure<PagedResult<SaleDto>>(validation.Error);
+            return Result.Failure<PagedResult<SoldVehicleDto>>(validation.Error);
         }
 
-        var sales = await _saleRepository.ListSoldAsync(query.Page, query.PageSize, cancellationToken);
-        return Result.Success(sales);
+        return Result.Success(await _saleRepository.ListSoldAsync(query.Page, query.PageSize, cancellationToken));
     }
 }
