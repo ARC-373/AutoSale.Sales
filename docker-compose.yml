@@ -35,7 +35,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
-      start_period: 15s
+      start_period: 30s
     networks:
       - default
       - autosale-integration
@@ -83,6 +83,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 25s
 
   # pgadmin:
   #   image: dpage/pgadmin4:latest
